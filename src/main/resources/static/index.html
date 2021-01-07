@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>数据库逆向生成工具</title>
+    <!-- vue 生产环境版本，优化了尺寸和速度 -->
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- 引入组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <!-- axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+</head>
+<body>
+<div id="app">
+    <el-header style="background-color: #545c64; height: 40px">
+        <h2 style="color: #ffd04b">K数据库逆向工程代码生成工具</h2>
+    </el-header>
+    <el-container>
+        <el-aside width="200px" style="height: 80%; position: fixed; left: 70px; top: 140px">
+            <div style="margin: 20px 30px; height: 80%">
+                <el-steps :active="active" finish-status="success" align-center direction="vertical">
+                    <el-step title="1.连接数据库"></el-step>
+                    <el-step title="2.选择表" description="选择要生成的代码的表，并配置包名"></el-step>
+                    <el-step title="3.配置" description="配置生成的代码信息"></el-step>
+                    <el-step title="4.生成代码"></el-step>
+                </el-steps>
+            </div>
+        </el-aside>
+        <el-main>
+            <div style="width: 80%; margin-left: 300px;">
+                <!-- 连接数据库 -->
+                <div class="step0" v-show="style.step0.isShow" style="width: 70%">
+                    <el-form ref="form" :model="db" label-width="150px">
+                        <el-form-item label="数据库连接地址">
+                            <el-input v-model="db.url"></el-input>
+                        </el-form-item>
+                        <el-form-item label="数据库用户名">
+                            <el-input v-model="db.username"></el-input>
+                        </el-form-item>
+                        <el-form-item label="数据库密码">
+                            <el-input v-model="db.password"></el-input>
+                        </el-form-item>
+                        <el-form-item label="数据库连接状态">
+                            <el-tag :type="this.result.status === 200 ? '' : 'danger'">{{ result.msg }}</el-tag>
+                        </el-form-item>
+                        <el-form-item>
+                            <el-button
+                                    type="primary"
+                                    :disabled="!connectBtnEnabled"
+                                    @click="connect">连接数据库
+                            </el-button>
+                        </el-form-item>
+                    </el-form>
+                </div>
+                <!-- 选择表 -->
+                <div class="step1" style="padding-left: 10px; width: 75%;" v-show="style.step1.isShow">
+                    <div style="margin-bottom: 10px;">
+                        <div style="height: 50px;">
+                            <el-button
+                                    v-if="!connectBtnEnabled"
+                                    type="danger"
+                                    @click="disconnect">断开数据库连接
+                            </el-button>
+                        </div>
+                        <div style="width: 300px;">
+                            <el-input
+                                    v-model="searchWords"
+                                    placeholder="请输入表名"
+                                    suffix-icon="el-icon-search"
+                                    size="small"></el-input>
+                        </div>
+                    </div>
+                    <el-table
+                            :data="tables"
+                            height="500"
+                            row-key="tableName"
+                            style="width: 100%"
+                            :row-style="handleRowStyle"
+                            @selection-change="handleSelectionChange"
+                            :lazy="true"
+                            :header-row-style="style.tableHeader">
+                        <el-table-column type="selection">
+                        </el-table-column>
+                        <el-table-column type="index">
+                        </el-table-column>
+                        <el-table-column
+                                prop="tableName"
+                                label="表名"
+                                width="180">
+                        </el-table-column>
+                        <el-table-column
+                                prop="tableRemark"
+                                label="comment">
+                        </el-table-column>
+                        <el-table-column
+                                type="expand"
+                                prop="columns">
+                            <template slot-scope="{ row }">
+                                <el-table :data="row.columns"
+                                          border
+                                          width="80%"
+                                          :header-row-style="style.tableHeader">
+                                    <el-table-column
+                                            prop="columnName"
+                                            label="name">
+                                    </el-table-column>
+                                    <el-table-column
+                                            prop="columnType"
+                                            label="type">
+                                    </el-table-column>
+                                    <el-table-column
+                                            prop="columnRemark"
+                                            label="comment">
+                                    </el-table-column>
+                                    <el-table-column
+                                            label="isPrimary">
+                                        <template v-slot="{ row }">
+                                            <p v-if="row.primary===true">TRUE</p>
+                                        </template>
+                                    </el-table-column>
+                                </el-table>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <div style="height: 80px; border: solid aqua 1px; margin-top: 25px;">
+                        <span>已选择：</span>
+                        <el-tag
+                                v-for="(item,index) in selectTables"
+                                :key=index
+                                effect="plain">
+                            {{ item }}
+                        </el-tag>
+                    </div>
+                    <div style="margin: 20px 0px; display: flex; justify-content: center;">
+                        <el-form ref="form" label-width="180px">
+                            <el-form-item label="实体使用的注解">
+                                <el-select v-model="commEntityAnnotations" multiple placeholder="请选择实体使用的注解">
+                                    <el-option
+                                            v-for="(item, index) in entityAnnotations"
+                                            :key="index"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </el-form-item>
+                            <el-form-item label="实体生成的方法">
+                                <el-select v-model="commEntityMethods" multiple placeholder="请选择实体生成的方法">
+                                    <el-option
+                                            v-for="(item, index) in entityMethods"
+                                            :key="index"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </el-form-item>
+                            <el-form-item label="实体生成的方法">
+                                <el-select v-model="commApiMethods" multiple placeholder="请选择生成的api方法">
+                                    <el-option
+                                            v-for="(item, index) in apiMethods"
+                                            :key="index"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </el-form-item>
+                            <el-form-item label="作者">
+                                <el-input
+                                v-model="author"
+                                placeholder="请输入作者名称"></el-input>
+                            </el-form-item>
+                        </el-form>
+                    </div>
+                    <div style="margin: 50px 0px; display: flex; justify-content: center;">
+                        <div>
+                            <el-button
+                                    type="primary"
+                                    @click="handleConfigCodeInfo">下一步
+                            </el-button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 配置生成的表名 -->
+                <div class="step2" v-show="style.step2.isShow" style="width: 80%;">
+                    <el-table
+                            :data="configInfo"
+                            stripe
+                            border
+                            style="width: 100%">
+                        <el-table-column
+                                prop="tableName"
+                                label="表名">
+                        </el-table-column>
+                        <el-table-column
+                                label="包名">
+                            <template v-slot="scope">
+                                <el-input v-model="scope.row.packageName"></el-input>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                label="实体类名">
+                            <template v-slot="scope">
+                                <el-input v-model="scope.row.entityClassName"></el-input>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                width="180"
+                                label="实体使用的注解">
+                            <template v-slot="scope">
+                                <el-select v-model="scope.row.entityAnnotations" multiple placeholder="请选择">
+                                    <el-option
+                                            v-for="(item, index) in entityAnnotations"
+                                            :key="index"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                width="180"
+                                label="实体中的方法">
+                            <template v-slot="scope">
+                                <el-select v-model="scope.row.entityMethods" multiple placeholder="请选择">
+                                    <el-option
+                                            v-for="(item, index) in entityMethods"
+                                            :key="index"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                label="Mapper名称">
+                            <template v-slot="scope">
+                                <el-input v-model="scope.row.mapperClassName"></el-input>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                label="Service名称">
+                            <template v-slot="scope">
+                                <el-input v-model="scope.row.serviceClassName"></el-input>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                label="Controller名称">
+                            <template v-slot="scope">
+                                <el-input v-model="scope.row.controllerClassName"></el-input>
+                            </template>
+                        </el-table-column>
+                        <el-table-column
+                                width="180"
+                                label="生成的接口方法">
+                            <template v-slot="scope">
+                                <el-select v-model="scope.row.apiMethods" multiple placeholder="请选择">
+                                    <el-option
+                                            v-for="(item, index) in apiMethods"
+                                            :key="index"
+                                            :label="item"
+                                            :value="item">
+                                    </el-option>
+                                </el-select>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <div style="margin: 20px 0px; display: flex; justify-content: center;">
+                        <div>
+                            <el-button
+                                    type="primary"
+                                    @click="active = 1;">上一步
+                            </el-button>
+                            <el-button
+                                    type="primary"
+                                    @click="generateCode">生成代码
+                            </el-button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 生成代码 -->
+                <div class="step3" v-show="style.step3.isShow" style="display: flex; flex-direction: column;">
+                    <div style="font-size: 20px;">
+                        {{ message }} <br>
+                        <p v-if="path && path!=''">
+                            代码生成路径：{{ path }}
+                        </p>
+                    </div>
+                    <div>
+                       <!-- <el-button
+                                type="primary"
+                                @click="openFileIIs">打开文件夹
+                        </el-button>-->
+                        <el-button
+                                type="primary"
+                                @click="active = 1;">继续生成
+                        </el-button>
+                    </div>
+                </div>
+            </div>
+        </el-main>
+    </el-container>
+</div>
+</body>
+<script>
+    class ConfigInfo {
+        tableName = "";
+        packageName = "org.goldlike";
+        entityClassName = "";
+        entityAnnotations = [];
+        entityMethods = [];
+        mapperClassName = "";
+        serviceClassName = "";
+        controllerClassName = "";
+        apiMethods = [];
+        author = "";
+    }
+
+    new Vue({
+        el: "#app",
+        data: function () {
+            return {
+                // 全局---------------------------------------------------
+                result: {
+                    msg: "数据库未连接！",
+                    status: "200",      // 状态200-正常
+                },
+                style: {
+                    step0: {
+                        isShow: true
+                    },
+                    step1: {
+                        isShow: false
+                    },
+                    step2: {
+                        isShow: false
+                    },
+                    step3: {
+                        isShow: false
+                    },
+                },
+                // 数据库连接相关----------------------------------------------
+                connectBtnEnabled: true,    // 连接状态
+                active: 0,                  // 进度条状态，初始为0
+                db: {
+                    url: "jdbc:mysql://localhost:3306/kmall_dev?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai",
+                    username: "root",
+                    password: "123456"
+                },
+                // 表相关-----------------------------------------------------
+                tables: [],         // 显示的表
+                selectTables: [],   // 选择的表
+                searchWords: "",    // 搜索字符
+                tableHeader: {
+                    'background-color': '#736d6d',
+                    'color': '#0e4277',
+                    'border-bottom': '2px rgb(103, 194, 58) solid'
+                },
+                // 代码信息配置相关---------------------------------------------
+                entityMethods: [],
+                entityAnnotations: [],
+                apiMethods: [],
+                commEntityMethods: [],
+                commEntityAnnotations: [],
+                commApiMethods: [],
+                configInfo: [],
+                author: "Jin.Nie",
+                // 代码生成后信息----------------------------------------------
+                path: "",
+                message: "",
+            }
+        },
+        methods: {
+            // 连接数据库
+            connect: function () {
+                this.connectBtnEnabled = false;
+                axios.post('/generateCode/connect', this.db)
+                    .then(res => {
+                        this.result.msg = res.data.msg;
+                        this.result.status = res.data.status;
+                        if (res.data.status === 200) {
+                            this.tables = res.data.obj;
+                            this.active = 1;
+                        } else {
+                            this.connectBtnEnabled = false;
+                        }
+                        // 请求接口选项数据
+                        if (!this.apiMethods || this.apiMethods.length == 0) {
+                            this.getGeneralOptions();
+                        }
+                    })
+                    .catch(err => {
+                        console.log(err);
+                    });
+            },
+            // 断开连接
+            disconnect() {
+                axios.post('/generateCode/disConnect')
+                    .then(res => {
+                        this.result.msg = res.data.msg;
+                        this.result.status = 500;
+                        this.active = 0;
+                        this.connectBtnEnabled = true;
+                        if (res.data.status) {
+                            this.tables = [];
+                        }
+                    })
+                    .catch(err => {
+                        console.log(err);
+                    });
+            },
+            // 选择器
+            handleSelectionChange(vals) {
+                let tables = new Array();
+                for (let i in vals) {
+                    tables.push(vals[i].tableName);
+                }
+                this.selectTables = tables;
+            },
+            // 修改表的行style
+            handleRowStyle({row}) {
+                // 不符合过滤条件的就隐藏
+                if (row.tableName.indexOf(this.searchWords) === -1) {
+                    return {display: 'none'};
+                }
+            },
+            // 获取的数据库相关的方法
+            async getGeneralOptions() {
+                await axios.get('/generateCode/getGeneralOptions')
+                    .then(res => {
+                        if (res.data.status === 200) {
+                            this.apiMethods = res.data.obj.apiMethods;
+                            this.entityAnnotations = res.data.obj.entityAnnotations;
+                            this.entityMethods = res.data.obj.entityMethods;
+                        }
+                    })
+            },
+            // 转换为驼峰式命名
+            formatCamelName(name) {
+                if (name.length === 0) {
+                    return name;
+                }
+                let arr = name.split('_');
+                let result = '';
+                arr.forEach((ele, index) => {
+                    for (let i = 0; i < ele.length; i++) {
+                        let item = ele[i];
+                        if (index !== 0 && i === 0) {
+                            item = ele[i].toUpperCase()
+                        }
+                        result = result + item;
+                    }
+                })
+                return result;
+            },
+            firstLetterToUpperCase(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            },
+            // 配置代码信息
+            handleConfigCodeInfo() {
+                let selectTables = this.selectTables;
+                if (selectTables.length === 0) {
+                    this.$message({
+                        message: '请选择表',
+                        center: true,
+                        type: "warning"
+                    });
+                    return;
+                }
+                this.configInfo = new Array();
+                this.active = 2;
+                // 配置信息数据处理
+                for (let i in selectTables) {
+                    const name = selectTables[i];
+                    const camelName = this.formatCamelName(name);
+                    let config = new ConfigInfo();
+                    config.tableName = name;
+                    config.entityClassName = this.firstLetterToUpperCase(camelName);
+                    config.entityAnnotations = this.commEntityAnnotations;
+                    config.entityMethods = this.commEntityMethods;
+                    config.apiMethods = this.commApiMethods;
+                    config.mapperClassName = this.firstLetterToUpperCase(camelName) + 'Mapper';
+                    config.serviceClassName = this.firstLetterToUpperCase(camelName) + 'Service';
+                    config.controllerClassName = this.firstLetterToUpperCase(camelName) + 'Controller';
+                    config.author = this.author;
+                    this.configInfo.push(config);
+                }
+            },
+            // 生成代码
+            generateCode() {
+                axios.post('/generateCode/generateCode', this.configInfo)
+                    .then(res => {
+                        if (res.data.status === 200) {
+                            this.active = 3;
+                            this.message = res.data.msg;
+                            this.path = res.data.obj;
+                        } else {
+                            this.$message({
+                                message: res.data.msg,
+                                center: true,
+                                type: "warning"
+                            });
+                        }
+                    });
+            },
+            openFileIIs() {
+                try {
+                    let message = "";
+                    if (navigator.userAgent.indexOf("Window") > 0) {
+                        let obj = new ActiveXObject("wscript.shell");
+                        if (obj) {
+                            obj.Run("\"" + this.path + "\"", 1, false);
+                            obj = null;
+                        }
+                    } else if (navigator.userAgent.indexOf("Mac OS X") > 0) {
+
+                    } else if (navigator.userAgent.indexOf("Linux") > 0) {
+                        message = "暂不支持linux";
+                    } else {
+                        message = "操作系统暂不支持"
+                    }
+                    this.$message({
+                        message: message,
+                        center: true,
+                        type: "warning"
+                    });
+                } catch (e) {
+                    console.log(e)
+                    this.$message({
+                        message: "文件夹不存在",
+                        center: true,
+                        type: "warning"
+                    });
+                }
+            }
+        },
+        watch: {
+            // 步骤条显示
+            active() {
+                switch (this.active) {
+                    case 0:
+                        this.style.step0.isShow = true;
+                        this.style.step1.isShow = false;
+                        this.style.step2.isShow = false;
+                        this.style.step3.isShow = false;
+                        break;
+                    case 1:
+                        this.style.step0.isShow = false;
+                        this.style.step1.isShow = true;
+                        this.style.step2.isShow = false;
+                        break;
+                    case 2:
+                        this.style.step1.isShow = false;
+                        this.style.step2.isShow = true;
+                        break;
+                    case 3:
+                        this.style.step2.isShow = false;
+                        this.style.step3.isShow = true;
+                        break;
+                    default:
+                        // Nothing
+                        break;
+                }
+            }
+        },
+        created() {
+            // 判断是否在连接
+            axios.get('/generateCode/connStatus')
+                .then(res => {
+                    this.result.msg = res.data.msg;
+                    this.result.status = res.data.status;
+                    if (res.data.status === 200) {
+                        if (res.data.obj) {
+                            this.active = 1;
+                            this.connectBtnEnabled = false;
+                            this.tables = res.data.obj;
+                            // 请求接口选项数据
+                            if (!this.apiMethods || this.apiMethods.length == 0) {
+                                this.getGeneralOptions();
+                            }
+                        } else {
+                            this.active = 0;
+                            this.connectBtnEnabled = true;
+                        }
+                    }
+
+                })
+                .catch(console.log);
+        }
+    });
+</script>
+</html>
