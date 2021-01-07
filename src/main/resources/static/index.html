@@ -166,10 +166,15 @@
                                     </el-option>
                                 </el-select>
                             </el-form-item>
+                            <el-form-item label="包名">
+                                <el-input
+                                        v-model="packageName"
+                                        placeholder="请输入包名"></el-input>
+                            </el-form-item>
                             <el-form-item label="作者">
                                 <el-input
-                                v-model="author"
-                                placeholder="请输入作者名称"></el-input>
+                                        v-model="author"
+                                        placeholder="请输入作者名称"></el-input>
                             </el-form-item>
                         </el-form>
                     </div>
@@ -183,7 +188,7 @@
                     </div>
                 </div>
                 <!-- 配置生成的表名 -->
-                <div class="step2" v-show="style.step2.isShow" style="width: 80%;">
+                <div class="step2" v-show="style.step2.isShow">
                     <el-table
                             :data="configInfo"
                             stripe
@@ -288,10 +293,10 @@
                         </p>
                     </div>
                     <div>
-                       <!-- <el-button
-                                type="primary"
-                                @click="openFileIIs">打开文件夹
-                        </el-button>-->
+                        <!-- <el-button
+                                 type="primary"
+                                 @click="openFileIIs">打开文件夹
+                         </el-button>-->
                         <el-button
                                 type="primary"
                                 @click="active = 1;">继续生成
@@ -306,7 +311,7 @@
 <script>
     class ConfigInfo {
         tableName = "";
-        packageName = "org.goldlike";
+        packageName = "";
         entityClassName = "";
         entityAnnotations = [];
         entityMethods = [];
@@ -365,6 +370,7 @@
                 commEntityAnnotations: [],
                 commApiMethods: [],
                 configInfo: [],
+                packageName: "org.goldlike",
                 author: "Jin.Nie",
                 // 代码生成后信息----------------------------------------------
                 path: "",
@@ -476,6 +482,7 @@
                     const camelName = this.formatCamelName(name);
                     let config = new ConfigInfo();
                     config.tableName = name;
+                    config.packageName = this.packageName;
                     config.entityClassName = this.firstLetterToUpperCase(camelName);
                     config.entityAnnotations = this.commEntityAnnotations;
                     config.entityMethods = this.commEntityMethods;

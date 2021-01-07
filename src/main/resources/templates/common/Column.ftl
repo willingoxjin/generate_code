@@ -8,9 +8,9 @@
             <#assign isPrimary = true>
         </#if>
         <#list entityAnnotations as anno >
-            <#if anno == "mybatis-plus" && isPrimary?? && isPrimary = true>
+            <#--<#if anno == "mybatis-plus" && isPrimary?? && isPrimary = true>
     @TableId(value = "${column.columnName}", type = IdType.AUTO)
-            </#if>
+            </#if>-->
             <#if anno == "swagger2">
     @ApiModelProperty(value = "${column.remark}")
             </#if>
