@@ -2,7 +2,7 @@
 
 # author
     jin.nie
-    github： 
+    github： https://github.com/NieGJ/generate_code
 ## 说明
     该模块用与从数据逆向生成代码，用户按需要自行配置
     默认项目地址：localhost:8085
