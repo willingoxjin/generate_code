@@ -64,7 +64,7 @@ public class ${entityClass.clazzName} {
             <#if method == 'Constructor'>
     public ${entityClass.clazzName}() {}
 
-    public ${entityClass.clazzName}(<#list entityClass.columns as column>${column.propertyType?uncap_first} ${column.propertyName?uncap_first}<#sep>, </#list>) {
+    public ${entityClass.clazzName}(<#list entityClass.columns as column>${column.propertyType} ${column.propertyName?uncap_first}<#sep>, </#list>) {
         <#list entityClass.columns as column>
         this.${column.propertyName?uncap_first} = ${column.propertyName?uncap_first};
         </#list>
