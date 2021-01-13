@@ -1,5 +1,6 @@
 package ${packageName}.service.impl;
 
+import ${packageName}.service.${serviceClassName};
 import ${packageName}.mapper.${mapperClassName};
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +12,9 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 
 @Service
-public class ${serviceClassName}Impl implements ${serviceClassName}{
+public class ${serviceClassName}Impl implements ${serviceClassName} {
 
     @Autowired
-    ${mapperClassName} ${mapperClassName?uncap_first};
+    private ${mapperClassName} ${mapperClassName?uncap_first};
 
 }

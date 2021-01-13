@@ -55,7 +55,7 @@ public class ${entityClass.clazzName} {
     public String toString() {
         return "${entityClass.clazzName}{" +
         <#list entityClass.columns as column>
-            ", ${column.propertyName?uncap_first}='" + ${column.propertyName?uncap_first} + '\'' +
+            "<#if column_index != 0>, </#if>${column.propertyName?uncap_first}='" + ${column.propertyName?uncap_first} + '\'' +
         </#list>
         '}';
     }

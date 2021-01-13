@@ -25,11 +25,11 @@ import io.swagger.annotations.ApiOperation;
  */
 
 @RestController
-@RequestMapper("/${entityClass.clazzName?uncap_first}")
+@RequestMapping("/${entityClass.clazzName?uncap_first}")
 <#if swagger2??>
 @Api(value = "", tags = "")
 </#if>
-public class ${controllerClassName}{
+public class ${controllerClassName} {
 
     @Autowired
     private ${serviceClassName} ${serviceClassName?uncap_first};
